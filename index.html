@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RFP Monitor Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* layout: dense data table as the single source of truth, with a compact
+     filter bar above it - no decorative hero, this is a working tool */
+  :root {
+    color-scheme: light dark;
+    --font-display: "Archivo", -apple-system, "Segoe UI", sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --text: #1a1f26;
+    --muted: #66707a;
+    --border: #dfe3e8;
+    --accent: #2a5f8f;
+    --good: #16794a;
+    --good-bg: #e3f3ea;
+    --notmatch: #66707a;
+    --notmatch-bg: #eef0f2;
+    --error: #ab2b1f;
+    --error-bg: #fbeae8;
+    --row-hover: #eef2f6;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1116;
+      --panel: #161b22;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --border: #2d333b;
+      --accent: #6cb0f5;
+      --good: #3fb950;
+      --good-bg: #0f2a17;
+      --notmatch: #8b949e;
+      --notmatch-bg: #1c2128;
+      --error: #f85149;
+      --error-bg: #2d1416;
+      --row-hover: #1b2128;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --border: #2d333b;
+    --accent: #6cb0f5;
+    --good: #3fb950;
+    --good-bg: #0f2a17;
+    --notmatch: #8b949e;
+    --notmatch-bg: #1c2128;
+    --error: #f85149;
+    --error-bg: #2d1416;
+    --row-hover: #1b2128;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 var(--font-body);
+    padding: 24px 16px 48px;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  h1 {
+    font-family: var(--font-display);
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+    text-wrap: balance;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+
+  .stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-width: 120px;
+  }
+  .stat .num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .label { color: var(--muted); font-size: 12px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .filters {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  select, input[type="search"] {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 13px;
+    min-width: 160px;
+  }
+  select[multiple] { min-height: 90px; }
+  input[type="search"] { min-width: 220px; }
+  .reset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .reset-btn:hover { background: var(--row-hover); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+  }
+  tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--row-hover); }
+  .col-date { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .col-source { white-space: nowrap; }
+  .col-title { max-width: 360px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge.good { color: var(--good); background: var(--good-bg); }
+  .badge.notmatch { color: var(--notmatch); background: var(--notmatch-bg); }
+  .badge.error { color: var(--error); background: var(--error-bg); }
+
+  .detail-row td {
+    background: var(--row-hover);
+    padding: 12px 16px;
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 6px 12px;
+    max-width: 900px;
+  }
+  .detail-grid dt { color: var(--muted); }
+  .detail-grid dd { margin: 0; word-break: break-word; }
+
+  .empty, .loading, .error-msg {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .error-msg { color: var(--error); }
+
+  [hidden] { display: none !important; }
+
+  @media (max-width: 640px) {
+    .col-title { max-width: 180px; }
+    .filters { gap: 10px; }
+    select, input[type="search"] { min-width: 140px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RFP Monitor Results</h1>
+  <p class="subtitle" id="subtitle">Loading...</p>
+
+  <div class="stats" id="stats" hidden>
+    <div class="stat"><div class="num" id="statTotal">0</div><div class="label">shown</div></div>
+    <div class="stat"><div class="num" id="statGood">0</div><div class="label">good matches</div></div>
+    <div class="stat"><div class="num" id="statWeeks">0</div><div class="label">weeks tracked</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="filters">
+      <div class="field">
+        <label for="fDate">Week</label>
+        <select id="fDate"></select>
+      </div>
+      <div class="field">
+        <label for="fSource">Source(s)</label>
+        <select id="fSource" multiple></select>
+      </div>
+      <div class="field">
+        <label for="fDecision">Decision</label>
+        <select id="fDecision" multiple></select>
+      </div>
+      <div class="field">
+        <label for="fSearch">Search title/reason</label>
+        <input type="search" id="fSearch" placeholder="e.g. architecture, science building...">
+      </div>
+      <button class="reset-btn" id="resetBtn">Reset filters</button>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:0; overflow-x:auto;">
+    <table id="resultsTable" hidden>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Source</th>
+          <th>Title</th>
+          <th>Decision</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+    <div class="loading" id="loadingMsg">Loading results...</div>
+    <div class="empty" id="emptyMsg" hidden>No results match the current filters.</div>
+    <div class="error-msg" id="errorMsg" hidden></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var DATA_URL = "data/decisions.json";
+
+  var state = { rows: [], expanded: null };
+
+  function badgeClass(decision) {
+    if (decision === "Good Match") return "good";
+    if (decision === "ERROR") return "error";
+    return "notmatch";
+  }
+
+  function el(tag, attrs, text) {
+    var e = document.createElement(tag);
+    if (attrs) {
+      for (var k in attrs) e.setAttribute(k, attrs[k]);
+    }
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function uniqueSorted(values) {
+    var seen = {};
+    var out = [];
+    values.forEach(function (v) {
+      if (v && !seen[v]) { seen[v] = true; out.push(v); }
+    });
+    out.sort();
+    return out;
+  }
+
+  function populateSelect(select, values, opts) {
+    opts = opts || {};
+    select.innerHTML = "";
+    if (opts.allOption) {
+      select.appendChild(el("option", { value: "__all__" }, opts.allLabel || "All"));
+    }
+    values.forEach(function (v) {
+      select.appendChild(el("option", { value: v }, v));
+    });
+  }
+
+  function getMultiSelectValues(select) {
+    return Array.from(select.selectedOptions).map(function (o) { return o.value; });
+  }
+
+  function applyFilters() {
+    var dateSel = document.getElementById("fDate").value;
+    var sources = getMultiSelectValues(document.getElementById("fSource"));
+    var decisions = getMultiSelectValues(document.getElementById("fDecision"));
+    var search = document.getElementById("fSearch").value.trim().toLowerCase();
+
+    var sourcesAll = sources.length === 0 || sources.indexOf("__all__") !== -1;
+    var decisionsAll = decisions.length === 0 || decisions.indexOf("__all__") !== -1;
+
+    return state.rows.filter(function (r) {
+      if (dateSel && dateSel !== "__all__" && r.Date !== dateSel) return false;
+      if (!sourcesAll && sources.indexOf(r.Source) === -1) return false;
+      if (!decisionsAll && decisions.indexOf(r.Decision) === -1) return false;
+      if (search) {
+        var hay = ((r.Title || "") + " " + (r.Reason || "") + " " + (r.Details || "")).toLowerCase();
+        if (hay.indexOf(search) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function render() {
+    var filtered = applyFilters();
+    var tbody = document.getElementById("resultsBody");
+    tbody.innerHTML = "";
+
+    document.getElementById("statTotal").textContent = filtered.length;
+    document.getElementById("statGood").textContent = filtered.filter(function (r) { return r.Decision === "Good Match"; }).length;
+
+    document.getElementById("emptyMsg").hidden = filtered.length !== 0;
+    document.getElementById("resultsTable").hidden = filtered.length === 0;
+
+    filtered.forEach(function (r, idx) {
+      var tr = el("tr", { "data-idx": idx });
+      tr.appendChild(el("td", { "class": "col-date" }, r.Date || ""));
+      tr.appendChild(el("td", { "class": "col-source" }, r.Source || ""));
+      tr.appendChild(el("td", { "class": "col-title" }, r.Title || "(untitled)"));
+
+      var decisionTd = el("td");
+      decisionTd.appendChild(el("span", { "class": "badge " + badgeClass(r.Decision) }, r.Decision || ""));
+      tr.appendChild(decisionTd);
+
+      tr.appendChild(el("td", {}, r.Reason || ""));
+
+      tr.addEventListener("click", function () { toggleDetail(r, tr); });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function toggleDetail(row, tr) {
+    var next = tr.nextSibling;
+    if (next && next.classList && next.classList.contains("detail-row")) {
+      next.remove();
+      return;
+    }
+    // close any other open detail row
+    document.querySelectorAll(".detail-row").forEach(function (n) { n.remove(); });
+
+    var detailTr = el("tr", { "class": "detail-row" });
+    var td = el("td", { colspan: "5" });
+    var dl = el("dl", { "class": "detail-grid" });
+
+    function addField(label, value, isLink) {
+      if (!value) return;
+      dl.appendChild(el("dt", {}, label));
+      if (isLink) {
+        var dd = el("dd");
+        var a = el("a", { href: value, target: "_blank", rel: "noopener" }, value);
+        dd.appendChild(a);
+        dl.appendChild(dd);
+      } else {
+        dl.appendChild(el("dd", {}, value));
+      }
+    }
+
+    addField("Reference", row.Reference);
+    addField("Link", row.Link, true);
+    addField("Details", row.Details);
+
+    td.appendChild(dl);
+    detailTr.appendChild(td);
+    tr.parentNode.insertBefore(detailTr, tr.nextSibling);
+  }
+
+  function resetFilters(dates) {
+    document.getElementById("fDate").value = dates.length ? dates[0] : "__all__";
+    populateSelect(document.getElementById("fSource"), uniqueSorted(state.rows.map(function (r) { return r.Source; })), { allOption: true, allLabel: "All sources" });
+    populateSelect(document.getElementById("fDecision"), uniqueSorted(state.rows.map(function (r) { return r.Decision; })), { allOption: true, allLabel: "All decisions" });
+    document.getElementById("fSearch").value = "";
+  }
+
+  function init(rows) {
+    state.rows = rows;
+
+    var dates = uniqueSorted(rows.map(function (r) { return r.Date; })).sort().reverse();
+    populateSelect(document.getElementById("fDate"), dates, { allOption: true, allLabel: "All weeks" });
+
+    resetFilters(dates);
+
+    document.getElementById("statWeeks").textContent = dates.length;
+    document.getElementById("subtitle").textContent =
+      rows.length + " judged bid(s) across " + dates.length + " week(s). Most recent: " + (dates[0] || "n/a") + ".";
+
+    document.getElementById("stats").hidden = false;
+
+    ["fDate", "fSource", "fDecision"].forEach(function (id) {
+      document.getElementById(id).addEventListener("change", render);
+    });
+    document.getElementById("fSearch").addEventListener("input", render);
+    document.getElementById("resetBtn").addEventListener("click", function () {
+      resetFilters(dates);
+      render();
+    });
+
+    render();
+  }
+
+  fetch(DATA_URL, { cache: "no-store" })
+    .then(function (resp) {
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      return resp.json();
+    })
+    .then(function (rows) {
+      document.getElementById("loadingMsg").hidden = true;
+      init(Array.isArray(rows) ? rows : []);
+    })
+    .catch(function (err) {
+      document.getElementById("loadingMsg").hidden = true;
+      var box = document.getElementById("errorMsg");
+      box.hidden = false;
+      box.textContent = "Couldn't load results data (" + err.message + "). If this site was just set up, the first weekly run hasn't published data yet.";
+      document.getElementById("subtitle").textContent = "No data loaded.";
+    });
+})();
+</script>
+</body>
+</html>
