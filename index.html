@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>RFP Monitor Results</title>
+<title>RFP Monitor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* layout: dense data table as the single source of truth, with a compact
-     filter bar above it - no decorative hero, this is a working tool */
+  /* layout: dense review table as the single source of truth, with a compact
+     filter bar above it - no decorative hero, this is a working tool. Click a
+     row to expand everything the scraper captured for that bid. */
   :root {
     color-scheme: light dark;
     --font-display: "Archivo", -apple-system, "Segoe UI", sans-serif;
@@ -20,13 +21,14 @@
     --muted: #66707a;
     --border: #dfe3e8;
     --accent: #2a5f8f;
-    --good: #16794a;
-    --good-bg: #e3f3ea;
-    --notmatch: #66707a;
-    --notmatch-bg: #eef0f2;
-    --error: #ab2b1f;
-    --error-bg: #fbeae8;
+    --accent-bg: #e4eef7;
+    --warn: #8a5300;
+    --warn-bg: #fdf0d9;
+    --urgent: #ab2b1f;
+    --urgent-bg: #fbeae8;
+    --neutral-bg: #eef0f2;
     --row-hover: #eef2f6;
+    --detail-bg: #f8f9fb;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
@@ -38,13 +40,14 @@
       --muted: #8b949e;
       --border: #2d333b;
       --accent: #6cb0f5;
-      --good: #3fb950;
-      --good-bg: #0f2a17;
-      --notmatch: #8b949e;
-      --notmatch-bg: #1c2128;
-      --error: #f85149;
-      --error-bg: #2d1416;
+      --accent-bg: #142538;
+      --warn: #e3a64a;
+      --warn-bg: #2e2110;
+      --urgent: #f85149;
+      --urgent-bg: #2d1416;
+      --neutral-bg: #1c2128;
       --row-hover: #1b2128;
+      --detail-bg: #12171d;
       color-scheme: dark;
     }
   }
@@ -55,13 +58,14 @@
     --muted: #8b949e;
     --border: #2d333b;
     --accent: #6cb0f5;
-    --good: #3fb950;
-    --good-bg: #0f2a17;
-    --notmatch: #8b949e;
-    --notmatch-bg: #1c2128;
-    --error: #f85149;
-    --error-bg: #2d1416;
+    --accent-bg: #142538;
+    --warn: #e3a64a;
+    --warn-bg: #2e2110;
+    --urgent: #f85149;
+    --urgent-bg: #2d1416;
+    --neutral-bg: #1c2128;
     --row-hover: #1b2128;
+    --detail-bg: #12171d;
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
@@ -72,7 +76,7 @@
     font: 14px/1.5 var(--font-body);
     padding: 24px 16px 48px;
   }
-  .wrap { max-width: 1200px; margin: 0 auto; }
+  .wrap { max-width: 1240px; margin: 0 auto; }
   h1 {
     font-family: var(--font-display);
     font-size: 23px;
@@ -94,7 +98,7 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 12px 16px;
-    min-width: 120px;
+    min-width: 130px;
   }
   .stat .num {
     font-family: var(--font-display);
@@ -103,6 +107,7 @@
     font-variant-numeric: tabular-nums;
   }
   .stat .label { color: var(--muted); font-size: 12px; }
+  .stat.warn .num { color: var(--warn); }
 
   .panel {
     background: var(--panel);
@@ -118,8 +123,8 @@
     align-items: flex-end;
   }
   .field { display: flex; flex-direction: column; gap: 4px; }
-  .field label { font-size: 12px; color: var(--muted); }
-  select, input[type="search"] {
+  .field label, .field .label { font-size: 12px; color: var(--muted); }
+  select, input[type="search"], input[type="date"] {
     background: var(--bg);
     color: var(--text);
     border: 1px solid var(--border);
@@ -128,9 +133,10 @@
     font-size: 13px;
     min-width: 160px;
   }
-  select[multiple] { min-height: 90px; }
-  input[type="search"] { min-width: 220px; }
-  .reset-btn {
+  input[type="search"] { min-width: 240px; }
+  input[type="date"] { min-width: 140px; font-family: inherit; }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 0; cursor: pointer; }
+  .btn {
     background: transparent;
     border: 1px solid var(--border);
     color: var(--text);
@@ -139,7 +145,24 @@
     font-size: 13px;
     cursor: pointer;
   }
-  .reset-btn:hover { background: var(--row-hover); }
+  .btn:hover { background: var(--row-hover); }
+  .btn:disabled { opacity: 0.5; cursor: default; background: transparent; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+  .btn.primary:hover:not(:disabled) { opacity: 0.9; }
+  .btn.primary:disabled { background: var(--accent); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .chip {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .chip .count { font-variant-numeric: tabular-nums; opacity: 0.8; margin-left: 4px; }
+  .chip[aria-pressed="true"] { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   thead th {
@@ -154,107 +177,160 @@
     background: var(--panel);
   }
   tbody td {
-    padding: 8px 10px;
+    padding: 10px;
     border-bottom: 1px solid var(--border);
     vertical-align: top;
   }
-  tbody tr { cursor: pointer; }
-  tbody tr:hover { background: var(--row-hover); }
+  tbody tr.bid { cursor: pointer; }
+  tbody tr.bid:hover { background: var(--row-hover); }
+  tbody tr.bid.open { background: var(--row-hover); }
+  tbody tr.bid.past { opacity: 0.6; }
   .col-date { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
   .col-source { white-space: nowrap; }
-  .col-title { max-width: 360px; }
+  .col-title { min-width: 260px; }
+  .col-title .title {
+    font-weight: 600;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  tr.open .col-title .title { -webkit-line-clamp: unset; }
+  .col-title .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .col-title .src-inline { display: none; }
+  .col-due { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .col-due .due-text { display: block; max-width: 180px; white-space: normal; }
+  .col-link { white-space: nowrap; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
 
   .badge {
     display: inline-block;
-    padding: 2px 8px;
+    margin-top: 3px;
+    padding: 1px 8px;
     border-radius: 999px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
+    color: var(--muted);
+    background: var(--neutral-bg);
   }
-  .badge.good { color: var(--good); background: var(--good-bg); }
-  .badge.notmatch { color: var(--notmatch); background: var(--notmatch-bg); }
-  .badge.error { color: var(--error); background: var(--error-bg); }
+  .badge.urgent { color: var(--urgent); background: var(--urgent-bg); }
+  .badge.warn { color: var(--warn); background: var(--warn-bg); }
+  .tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--neutral-bg);
+    margin: 0 4px 2px 0;
+  }
 
-  .detail-row td {
-    background: var(--row-hover);
-    padding: 12px 16px;
+  .detail-row > td { background: var(--detail-bg); padding: 16px 20px 20px; }
+  .detail { max-width: 960px; }
+  .detail h3 {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
+  .detail .desc { white-space: pre-wrap; margin: 0 0 18px; max-width: 75ch; }
   .detail-grid {
     display: grid;
-    grid-template-columns: 110px 1fr;
-    gap: 6px 12px;
-    max-width: 900px;
+    grid-template-columns: 180px 1fr;
+    gap: 6px 14px;
+    margin: 0 0 16px;
   }
   .detail-grid dt { color: var(--muted); }
-  .detail-grid dd { margin: 0; word-break: break-word; }
+  .detail-grid dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .detail-links { display: flex; gap: 16px; flex-wrap: wrap; }
 
   .empty, .loading, .error-msg {
     padding: 40px 16px;
     text-align: center;
     color: var(--muted);
   }
-  .error-msg { color: var(--error); }
+  .error-msg { color: var(--urgent); }
 
   [hidden] { display: none !important; }
 
-  @media (max-width: 640px) {
-    .col-title { max-width: 180px; }
+  @media (max-width: 760px) {
+    .stat { flex: 1 1 0; min-width: 0; padding: 10px 12px; }
+    .col-source, .col-date, .col-status { display: none; }
+    .col-title { min-width: 0; }
+    .col-title .src-inline { display: inline; }
     .filters { gap: 10px; }
-    select, input[type="search"] { min-width: 140px; }
+    select, input[type="search"], input[type="date"] { min-width: 0; width: 100%; }
+    .field { flex: 1 1 140px; }
+    .detail-grid { grid-template-columns: 1fr; gap: 2px; }
+    .detail-grid dd { margin-bottom: 8px; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>RFP Monitor Results</h1>
+  <h1>RFP Monitor</h1>
   <p class="subtitle" id="subtitle">Loading...</p>
 
   <div class="stats" id="stats" hidden>
-    <div class="stat"><div class="num" id="statTotal">0</div><div class="label">shown</div></div>
-    <div class="stat"><div class="num" id="statGood">0</div><div class="label">good matches</div></div>
-    <div class="stat"><div class="num" id="statWeeks">0</div><div class="label">weeks tracked</div></div>
+    <div class="stat"><div class="num" id="statShown">0</div><div class="label">bids shown</div></div>
+    <div class="stat warn"><div class="num" id="statSoon">0</div><div class="label">due within 7 days</div></div>
+    <div class="stat"><div class="num" id="statSources">0</div><div class="label">sources</div></div>
   </div>
 
   <div class="panel">
     <div class="filters">
       <div class="field">
-        <label for="fDate">Week</label>
+        <label for="fDate">Found</label>
         <select id="fDate"></select>
       </div>
-      <div class="field">
-        <label for="fSource">Source(s)</label>
-        <select id="fSource" multiple></select>
+      <div class="field" id="rangeFrom" hidden>
+        <label for="fFrom">From</label>
+        <input type="date" id="fFrom">
+      </div>
+      <div class="field" id="rangeTo" hidden>
+        <label for="fTo">To</label>
+        <input type="date" id="fTo">
       </div>
       <div class="field">
-        <label for="fDecision">Decision</label>
-        <select id="fDecision" multiple></select>
+        <label for="fSearch">Search</label>
+        <input type="search" id="fSearch" placeholder="Title, agency, description...">
       </div>
       <div class="field">
-        <label for="fSearch">Search title/reason</label>
-        <input type="search" id="fSearch" placeholder="e.g. architecture, science building...">
+        <label for="fSort">Sort by</label>
+        <select id="fSort">
+          <option value="due">Due date (soonest first)</option>
+          <option value="found">Date found (newest first)</option>
+          <option value="source">Source</option>
+        </select>
       </div>
-      <button class="reset-btn" id="resetBtn">Reset filters</button>
+      <label class="check"><input type="checkbox" id="fHidePast" checked> Hide past due</label>
+      <button class="btn" id="resetBtn">Reset</button>
+      <button class="btn primary" id="csvBtn" title="Download every bid currently shown, with all captured fields">Download CSV</button>
     </div>
+    <div class="chips" id="sourceChips" role="group" aria-label="Filter by source"></div>
   </div>
 
   <div class="panel" style="padding:0; overflow-x:auto;">
     <table id="resultsTable" hidden>
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Source</th>
-          <th>Title</th>
-          <th>Decision</th>
-          <th>Reason</th>
+          <th class="col-date">Found</th>
+          <th class="col-source">Source</th>
+          <th>Bid</th>
+          <th>Due</th>
+          <th class="col-status">Status / type</th>
+          <th></th>
         </tr>
       </thead>
       <tbody id="resultsBody"></tbody>
     </table>
-    <div class="loading" id="loadingMsg">Loading results...</div>
-    <div class="empty" id="emptyMsg" hidden>No results match the current filters.</div>
+    <div class="loading" id="loadingMsg">Loading bids...</div>
+    <div class="empty" id="emptyMsg" hidden>No bids match the current filters.</div>
     <div class="error-msg" id="errorMsg" hidden></div>
   </div>
 </div>
@@ -263,164 +339,337 @@
 (function () {
   "use strict";
 
-  var DATA_URL = "data/decisions.json";
+  var DATA_URL = "data/bids.json";
+  var COLS = 6;
+  var URL_RE = /https?:\/\/[^\s<>"]+/g;
 
-  var state = { rows: [], expanded: null };
+  var state = { rows: [], dates: [], sources: [], activeSources: {}, openKey: null, shown: [] };
 
-  function badgeClass(decision) {
-    if (decision === "Good Match") return "good";
-    if (decision === "ERROR") return "error";
-    return "notmatch";
-  }
+  // normalized columns first in the CSV, then every original scraped field
+  var CSV_COLS = [
+    ["Date", "Found"], ["Source", "Source"], ["Title", "Title"], ["Reference", "Reference"],
+    ["Agency", "Agency"], ["Location", "Location"], ["Due", "Due"], ["DueSort", "Due (parsed)"],
+    ["Posted", "Posted"], ["Status", "Status"], ["Type", "Type"], ["Budget", "Budget"],
+    ["Description", "Description"], ["Link", "Link"], ["SourceUrl", "Source listing"]
+  ];
+
+  function $(id) { return document.getElementById(id); }
 
   function el(tag, attrs, text) {
     var e = document.createElement(tag);
-    if (attrs) {
-      for (var k in attrs) e.setAttribute(k, attrs[k]);
-    }
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
     if (text != null) e.textContent = text;
     return e;
   }
 
+  // append text to a node, turning any URLs in it into links (built as DOM
+  // nodes, never innerHTML - this is scraped third-party text)
+  function appendLinkified(node, text) {
+    var last = 0;
+    text.replace(URL_RE, function (url, idx) {
+      if (idx > last) node.appendChild(document.createTextNode(text.slice(last, idx)));
+      node.appendChild(el("a", { href: url, target: "_blank", rel: "noopener" }, url));
+      last = idx + url.length;
+      return url;
+    });
+    if (last < text.length) node.appendChild(document.createTextNode(text.slice(last)));
+    return node;
+  }
+
+  function rowKey(r) { return r.Date + "|" + r.Source + "|" + r.Reference + "|" + r.Title; }
+
+  function todayIso() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  // whole days from today to an ISO date (negative = past), or null if unknown
+  function daysUntil(iso) {
+    if (!iso) return null;
+    var a = new Date(todayIso() + "T00:00:00");
+    var b = new Date(iso + "T00:00:00");
+    return Math.round((b - a) / 86400000);
+  }
+
+  function dueBadge(days) {
+    if (days === null) return null;
+    if (days < 0) return { cls: "", text: "past due" };
+    if (days === 0) return { cls: "urgent", text: "due today" };
+    if (days <= 3) return { cls: "urgent", text: "in " + days + " day" + (days === 1 ? "" : "s") };
+    if (days <= 7) return { cls: "warn", text: "in " + days + " days" };
+    return { cls: "", text: "in " + days + " days" };
+  }
+
   function uniqueSorted(values) {
-    var seen = {};
-    var out = [];
-    values.forEach(function (v) {
-      if (v && !seen[v]) { seen[v] = true; out.push(v); }
-    });
-    out.sort();
-    return out;
+    var seen = {}, out = [];
+    values.forEach(function (v) { if (v && !seen[v]) { seen[v] = true; out.push(v); } });
+    return out.sort();
   }
 
-  function populateSelect(select, values, opts) {
-    opts = opts || {};
-    select.innerHTML = "";
-    if (opts.allOption) {
-      select.appendChild(el("option", { value: "__all__" }, opts.allLabel || "All"));
+  function searchText(r) {
+    if (r._hay == null) {
+      var parts = [r.Title, r.Reference, r.Agency, r.Location, r.Description, r.Type];
+      for (var k in (r.Fields || {})) parts.push(r.Fields[k]);
+      r._hay = parts.join(" ").toLowerCase();
     }
-    values.forEach(function (v) {
-      select.appendChild(el("option", { value: v }, v));
-    });
+    return r._hay;
   }
 
-  function getMultiSelectValues(select) {
-    return Array.from(select.selectedOptions).map(function (o) { return o.value; });
-  }
-
-  function applyFilters() {
-    var dateSel = document.getElementById("fDate").value;
-    var sources = getMultiSelectValues(document.getElementById("fSource"));
-    var decisions = getMultiSelectValues(document.getElementById("fDecision"));
-    var search = document.getElementById("fSearch").value.trim().toLowerCase();
-
-    var sourcesAll = sources.length === 0 || sources.indexOf("__all__") !== -1;
-    var decisionsAll = decisions.length === 0 || decisions.indexOf("__all__") !== -1;
-
+  function baseFiltered() {
+    var dateSel = $("fDate").value;
+    var hidePast = $("fHidePast").checked;
+    var terms = $("fSearch").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return state.rows.filter(function (r) {
-      if (dateSel && dateSel !== "__all__" && r.Date !== dateSel) return false;
-      if (!sourcesAll && sources.indexOf(r.Source) === -1) return false;
-      if (!decisionsAll && decisions.indexOf(r.Decision) === -1) return false;
-      if (search) {
-        var hay = ((r.Title || "") + " " + (r.Reason || "") + " " + (r.Details || "")).toLowerCase();
-        if (hay.indexOf(search) === -1) return false;
+      if (dateSel === "__range__") {
+        // ISO dates compare correctly as strings; a blank end means open-ended
+        if ($("fFrom").value && r.Date < $("fFrom").value) return false;
+        if ($("fTo").value && r.Date > $("fTo").value) return false;
+      } else if (dateSel !== "__all__" && r.Date !== dateSel) return false;
+      if (hidePast && r._days !== null && r._days < 0) return false;
+      if (terms.length) {
+        var hay = searchText(r);
+        for (var i = 0; i < terms.length; i++) if (hay.indexOf(terms[i]) === -1) return false;
       }
       return true;
     });
   }
 
+  function sortRows(rows) {
+    var mode = $("fSort").value;
+    var byTitle = function (a, b) { return (a.Title || "").localeCompare(b.Title || ""); };
+    rows.sort(function (a, b) {
+      if (mode === "found") return (b.Date || "").localeCompare(a.Date || "") || a.Source.localeCompare(b.Source) || byTitle(a, b);
+      if (mode === "source") return a.Source.localeCompare(b.Source) || (a.DueSort || "9999").localeCompare(b.DueSort || "9999") || byTitle(a, b);
+      // due: soonest first, unknown due dates last
+      return (a.DueSort || "9999").localeCompare(b.DueSort || "9999") || byTitle(a, b);
+    });
+    return rows;
+  }
+
+  function renderChips(base) {
+    var counts = {};
+    base.forEach(function (r) { counts[r.Source] = (counts[r.Source] || 0) + 1; });
+    var box = $("sourceChips");
+    box.innerHTML = "";
+    var anyActive = Object.keys(state.activeSources).length > 0;
+    state.sources.forEach(function (s) {
+      var b = el("button", { type: "button", "class": "chip", "aria-pressed": state.activeSources[s] ? "true" : "false" }, s);
+      b.appendChild(el("span", { "class": "count" }, String(counts[s] || 0)));
+      if (!counts[s] && !state.activeSources[s]) b.style.opacity = "0.5";
+      b.addEventListener("click", function () {
+        if (state.activeSources[s]) delete state.activeSources[s]; else state.activeSources[s] = true;
+        render();
+      });
+      box.appendChild(b);
+    });
+    if (anyActive) {
+      var clear = el("button", { type: "button", "class": "chip" }, "All sources");
+      clear.addEventListener("click", function () { state.activeSources = {}; render(); });
+      box.appendChild(clear);
+    }
+  }
+
   function render() {
-    var filtered = applyFilters();
-    var tbody = document.getElementById("resultsBody");
+    var base = baseFiltered();
+    renderChips(base);
+
+    var anyActive = Object.keys(state.activeSources).length > 0;
+    var rows = sortRows(base.filter(function (r) { return !anyActive || state.activeSources[r.Source]; }));
+
+    state.shown = rows;
+    var range = $("fDate").value === "__range__";
+    $("rangeFrom").hidden = !range;
+    $("rangeTo").hidden = !range;
+    $("csvBtn").disabled = rows.length === 0;
+    $("csvBtn").textContent = "Download CSV (" + rows.length + ")";
+
+    $("statShown").textContent = rows.length;
+    $("statSoon").textContent = rows.filter(function (r) { return r._days !== null && r._days >= 0 && r._days <= 7; }).length;
+    $("statSources").textContent = uniqueSorted(rows.map(function (r) { return r.Source; })).length;
+
+    $("emptyMsg").hidden = rows.length !== 0;
+    $("resultsTable").hidden = rows.length === 0;
+
+    var tbody = $("resultsBody");
     tbody.innerHTML = "";
-
-    document.getElementById("statTotal").textContent = filtered.length;
-    document.getElementById("statGood").textContent = filtered.filter(function (r) { return r.Decision === "Good Match"; }).length;
-
-    document.getElementById("emptyMsg").hidden = filtered.length !== 0;
-    document.getElementById("resultsTable").hidden = filtered.length === 0;
-
-    filtered.forEach(function (r, idx) {
-      var tr = el("tr", { "data-idx": idx });
+    rows.forEach(function (r) {
+      var tr = el("tr", { "class": "bid" + (r._days !== null && r._days < 0 ? " past" : "") });
       tr.appendChild(el("td", { "class": "col-date" }, r.Date || ""));
       tr.appendChild(el("td", { "class": "col-source" }, r.Source || ""));
-      tr.appendChild(el("td", { "class": "col-title" }, r.Title || "(untitled)"));
 
-      var decisionTd = el("td");
-      decisionTd.appendChild(el("span", { "class": "badge " + badgeClass(r.Decision) }, r.Decision || ""));
-      tr.appendChild(decisionTd);
+      var t = el("td", { "class": "col-title" });
+      t.appendChild(el("div", { "class": "title" }, r.Title || r.Reference || "(untitled)"));
+      var meta = [r.Agency, r.Location, r.Reference && r.Title ? "#" + r.Reference : ""].filter(Boolean);
+      var metaDiv = el("div", { "class": "meta" });
+      metaDiv.appendChild(el("span", { "class": "src-inline" }, r.Source + (meta.length ? " · " : "")));
+      metaDiv.appendChild(document.createTextNode(meta.join(" · ")));
+      t.appendChild(metaDiv);
+      tr.appendChild(t);
 
-      tr.appendChild(el("td", {}, r.Reason || ""));
+      var due = el("td", { "class": "col-due" });
+      // show the site's own due text (often includes a time), but fall back to
+      // the parsed date when that text is long free-form prose ("Key Dates" etc.)
+      var dueText = (r.Due || "-").split("\n")[0];
+      if (dueText.length > 32 && r.DueSort) dueText = r.DueSort;
+      due.appendChild(el("span", { "class": "due-text" }, dueText));
+      var badge = dueBadge(r._days);
+      if (badge) due.appendChild(el("span", { "class": "badge " + badge.cls }, badge.text));
+      tr.appendChild(due);
 
-      tr.addEventListener("click", function () { toggleDetail(r, tr); });
+      var st = el("td", { "class": "col-status" });
+      [r.Status, r.Type].filter(Boolean).forEach(function (v) { st.appendChild(el("span", { "class": "tag" }, v)); });
+      if (r.Budget) st.appendChild(el("div", { "class": "meta" }, r.Budget));
+      tr.appendChild(st);
+
+      var lk = el("td", { "class": "col-link" });
+      if (r.Link) {
+        var a = el("a", { href: r.Link, target: "_blank", rel: "noopener" }, "Open ↗");
+        a.addEventListener("click", function (e) { e.stopPropagation(); });
+        lk.appendChild(a);
+      }
+      tr.appendChild(lk);
+
+      tr.addEventListener("click", function () {
+        state.openKey = state.openKey === rowKey(r) ? null : rowKey(r);
+        render();
+      });
       tbody.appendChild(tr);
+
+      if (state.openKey === rowKey(r)) {
+        tr.classList.add("open");
+        tbody.appendChild(detailRow(r));
+      }
     });
   }
 
-  function toggleDetail(row, tr) {
-    var next = tr.nextSibling;
-    if (next && next.classList && next.classList.contains("detail-row")) {
-      next.remove();
-      return;
+  function detailRow(r) {
+    var tr = el("tr", { "class": "detail-row" });
+    var td = el("td", { colspan: String(COLS) });
+    var box = el("div", { "class": "detail" });
+
+    if (r.Description) {
+      box.appendChild(el("h3", {}, "Description"));
+      box.appendChild(appendLinkified(el("p", { "class": "desc" }), r.Description));
     }
-    // close any other open detail row
-    document.querySelectorAll(".detail-row").forEach(function (n) { n.remove(); });
 
-    var detailTr = el("tr", { "class": "detail-row" });
-    var td = el("td", { colspan: "5" });
+    box.appendChild(el("h3", {}, "All details from " + r.Source));
     var dl = el("dl", { "class": "detail-grid" });
-
-    function addField(label, value, isLink) {
+    function add(label, value) {
       if (!value) return;
       dl.appendChild(el("dt", {}, label));
-      if (isLink) {
-        var dd = el("dd");
-        var a = el("a", { href: value, target: "_blank", rel: "noopener" }, value);
-        dd.appendChild(a);
-        dl.appendChild(dd);
-      } else {
-        dl.appendChild(el("dd", {}, value));
-      }
+      dl.appendChild(appendLinkified(el("dd"), value));
     }
+    add("First seen", r.Date);
+    var fields = r.Fields || {};
+    for (var k in fields) {
+      if (fields[k] === r.Description) continue; // already shown above
+      add(k, fields[k]);
+    }
+    box.appendChild(dl);
 
-    addField("Reference", row.Reference);
-    addField("Link", row.Link, true);
-    addField("Details", row.Details);
+    var links = el("div", { "class": "detail-links" });
+    if (r.Link) links.appendChild(el("a", { href: r.Link, target: "_blank", rel: "noopener" }, "Open bid posting ↗"));
+    if (r.SourceUrl && r.SourceUrl !== r.Link) links.appendChild(el("a", { href: r.SourceUrl, target: "_blank", rel: "noopener" }, "All " + r.Source + " listings ↗"));
+    box.appendChild(links);
 
-    td.appendChild(dl);
-    detailTr.appendChild(td);
-    tr.parentNode.insertBefore(detailTr, tr.nextSibling);
+    td.appendChild(box);
+    tr.appendChild(td);
+    return tr;
   }
 
-  function resetFilters(dates) {
-    document.getElementById("fDate").value = dates.length ? dates[0] : "__all__";
-    populateSelect(document.getElementById("fSource"), uniqueSorted(state.rows.map(function (r) { return r.Source; })), { allOption: true, allLabel: "All sources" });
-    populateSelect(document.getElementById("fDecision"), uniqueSorted(state.rows.map(function (r) { return r.Decision; })), { allOption: true, allLabel: "All decisions" });
-    document.getElementById("fSearch").value = "";
+  function csvCell(value) {
+    var s = value == null ? "" : String(value);
+    // scraped third-party text: stop Excel from evaluating it as a formula
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
+  function buildCsv(rows) {
+    var cols = CSV_COLS.slice();
+    var taken = {};
+    cols.forEach(function (c) { taken[c[1]] = true; });
+    // every original field any exported row has; a field whose name matches a
+    // normalized column only gets its own column if it ever holds a different value
+    var extra = [], seen = {};
+    rows.forEach(function (r) {
+      for (var k in (r.Fields || {})) {
+        if (seen[k]) continue;
+        if (taken[k] && !rows.some(function (x) { return x.Fields && x.Fields[k] && x.Fields[k] !== x[k]; })) continue;
+        seen[k] = true;
+        extra.push(k);
+      }
+    });
+    extra.forEach(function (k) {
+      cols.push([null, taken[k] ? k + " (original)" : k, k]);
+    });
+
+    var lines = [cols.map(function (c) { return csvCell(c[1]); }).join(",")];
+    rows.forEach(function (r) {
+      lines.push(cols.map(function (c) {
+        return csvCell(c[0] ? r[c[0]] : (r.Fields || {})[c[2]]);
+      }).join(","));
+    });
+    return lines.join("\r\n") + "\r\n";
+  }
+
+  function csvFileName() {
+    var sel = $("fDate").value, part;
+    if (sel === "__all__") part = "all-runs";
+    else if (sel === "__range__") part = ($("fFrom").value || "start") + "_to_" + ($("fTo").value || todayIso());
+    else part = sel;
+    return "rfp-bids_" + part + ".csv";
+  }
+
+  function downloadCsv() {
+    if (!state.shown.length) return;
+    // BOM so Excel opens the file as UTF-8 instead of mangling accents/dashes
+    var blob = new Blob(["﻿" + buildCsv(state.shown)], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = el("a", { href: url, download: csvFileName() });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function resetFilters() {
+    $("fDate").value = state.dates.length ? state.dates[0] : "__all__";
+    $("fFrom").value = state.dates.length ? state.dates[state.dates.length - 1] : "";
+    $("fTo").value = state.dates.length ? state.dates[0] : "";
+    $("fSearch").value = "";
+    $("fSort").value = "due";
+    $("fHidePast").checked = true;
+    state.activeSources = {};
+    state.openKey = null;
   }
 
   function init(rows) {
+    rows.forEach(function (r) { r._days = daysUntil(r.DueSort); });
     state.rows = rows;
+    state.dates = uniqueSorted(rows.map(function (r) { return r.Date; })).reverse();
+    state.sources = uniqueSorted(rows.map(function (r) { return r.Source; }));
 
-    var dates = uniqueSorted(rows.map(function (r) { return r.Date; })).sort().reverse();
-    populateSelect(document.getElementById("fDate"), dates, { allOption: true, allLabel: "All weeks" });
-
-    resetFilters(dates);
-
-    document.getElementById("statWeeks").textContent = dates.length;
-    document.getElementById("subtitle").textContent =
-      rows.length + " judged bid(s) across " + dates.length + " week(s). Most recent: " + (dates[0] || "n/a") + ".";
-
-    document.getElementById("stats").hidden = false;
-
-    ["fDate", "fSource", "fDecision"].forEach(function (id) {
-      document.getElementById(id).addEventListener("change", render);
-    });
-    document.getElementById("fSearch").addEventListener("input", render);
-    document.getElementById("resetBtn").addEventListener("click", function () {
-      resetFilters(dates);
-      render();
+    var dateSel = $("fDate");
+    dateSel.appendChild(el("option", { value: "__all__" }, "All runs"));
+    dateSel.appendChild(el("option", { value: "__range__" }, "Date range..."));
+    state.dates.forEach(function (d, i) {
+      var n = rows.filter(function (r) { return r.Date === d; }).length;
+      dateSel.appendChild(el("option", { value: d }, d + (i === 0 ? " (latest)" : "") + " - " + n + " new"));
     });
 
+    var latest = state.dates[0];
+    var latestCount = latest ? rows.filter(function (r) { return r.Date === latest; }).length : 0;
+    $("subtitle").textContent = latest
+      ? latestCount + " new bid(s) found on the latest run (" + latest + "). " + rows.length + " total across " + state.dates.length + " run(s)."
+      : "No bids recorded yet.";
+    $("stats").hidden = false;
+
+    ["fDate", "fFrom", "fTo", "fSort", "fHidePast"].forEach(function (id) { $(id).addEventListener("change", render); });
+    $("fSearch").addEventListener("input", render);
+    $("resetBtn").addEventListener("click", function () { resetFilters(); render(); });
+    $("csvBtn").addEventListener("click", downloadCsv);
+
+    resetFilters();
     render();
   }
 
@@ -430,15 +679,15 @@
       return resp.json();
     })
     .then(function (rows) {
-      document.getElementById("loadingMsg").hidden = true;
+      $("loadingMsg").hidden = true;
       init(Array.isArray(rows) ? rows : []);
     })
     .catch(function (err) {
-      document.getElementById("loadingMsg").hidden = true;
-      var box = document.getElementById("errorMsg");
+      $("loadingMsg").hidden = true;
+      var box = $("errorMsg");
       box.hidden = false;
-      box.textContent = "Couldn't load results data (" + err.message + "). If this site was just set up, the first weekly run hasn't published data yet.";
-      document.getElementById("subtitle").textContent = "No data loaded.";
+      box.textContent = "Couldn't load bid data (" + err.message + "). If this site was just set up, the first weekly run hasn't published data yet.";
+      $("subtitle").textContent = "No data loaded.";
     });
 })();
 </script>
